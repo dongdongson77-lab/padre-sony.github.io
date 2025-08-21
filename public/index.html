@@ -1,39 +1,896 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Padre Sony 홈페이지</title>
-
-  <!-- Tailwind -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: { sans: ['Inter', 'sans-serif'] },
-          colors: { primary: '#2563eb' }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>신부님 홈페이지</title>
+    <!-- 구글 폰트 Inter 적용 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS 로딩 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: '#4253a6', // 깊고 차분한 파란색
+                        secondary: '#f3e8d4', // 부드러운 베이지색
+                        accent: '#ffb74d', // 포인트 오렌지색
+                    }
+                }
+            }
         }
-      }
-    }
-  </script>
+    </script>
+    <style>
+        /* 모바일 뷰에서 햄버거 메뉴를 위한 CSS */
+        .hamburger-menu {
+            display: none;
+            flex-direction: column;
+            cursor: pointer;
+            gap: 5px;
+        }
+        .hamburger-menu .bar {
+            width: 25px;
+            height: 3px;
+            background-color: white;
+            transition: all 0.3s ease;
+            border-radius: 9999px;
+        }
 
-  <link rel="stylesheet" href="../assets/css/style.css">
+        .main-nav {
+            display: flex;
+        }
+
+        /* 모바일 뷰에서 햄버거 메뉴 활성화 시 네비게이션 스타일 */
+        @media (max-width: 767px) {
+            .hamburger-menu {
+                display: flex;
+            }
+            .main-nav {
+                display: none;
+                flex-direction: column;
+                position: absolute;
+                top: 64px; /* 헤더 높이에 맞게 조정 */
+                left: 0;
+                width: 100%;
+                background-color: #333;
+                z-index: 10;
+            }
+            .main-nav.active {
+                display: flex;
+            }
+            .main-nav a,
+            .main-nav button {
+                padding: 1rem;
+                text-align: center;
+                border-bottom: 1px solid #444;
+            }
+            .main-nav a:hover,
+            .main-nav button:hover {
+                background-color: #444;
+            }
+        }
+        
+        /* 이미지 확대 모달 스타일 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.9);
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+            margin: auto;
+            display: block;
+            max-width: 90%;
+            max-height: 90%;
+        }
+        
+        .close {
+            position: absolute;
+            top: 15px;
+            right: 35px;
+            color: #f1f1f1;
+            font-size: 40px;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+        
+        .close:hover,
+        .close:focus {
+            color: #bbb;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        
+        .footer {
+            background-color: #1a202c; /* bg-gray-900 */
+            color: #d1d5db; /* text-gray-300 */
+            padding-top: 1.5rem; /* py-6 */
+            padding-bottom: 1.5rem; /* py-6 */
+            margin-top: 3rem; /* mt-12 */
+            text-align: center;
+        }
+        
+        /* 메인 배너 텍스트 애니메이션 */
+        @keyframes fadeInSlideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .fade-in-slide-up {
+            animation: fadeInSlideUp 1s ease-out forwards;
+        }
+    </style>
 </head>
 <body class="bg-gray-100 font-sans">
-  
-  <!-- 메인 영역 -->
-  <div id="app-container" class="opacity-0 transition-opacity duration-500"></div>
+    
+    <!-- 모든 페이지 콘텐츠를 담을 컨테이너 -->
+    <div id="app-container"></div>
 
-  <!-- Footer -->
-  <footer class="bg-gray-900 text-gray-300 py-6 mt-12">
-    <div class="max-w-6xl mx-auto text-center">
-      <p class="mb-2">&copy; 2025 Padre Sony. All rights reserved.</p>
-      <p class="text-sm">문의: info@padresony.org | Tel: 02-123-4567</p>
+    <!-- 이미지 확대 모달 -->
+    <div id="image-modal" class="modal">
+        <span class="close">&times;</span>
+        <img class="modal-content" id="modal-image">
     </div>
-  </footer>
 
-  <!-- JS -->
-  <script src="../assets/js/app.js"></script>
+    <!-- Firebase SDK 로딩 -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, doc, addDoc, updateDoc, deleteDoc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables provided by the environment
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // Initialize Firebase services
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        let userRole = 'visitor'; // Default role
+        let userId = 'anonymous'; // Default userId
+        let authReady = false; // Auth state flag
+
+        // Global state for content
+        let videos = [];
+        let images = [];
+        let posts = [];
+        let currentPage = 'main';
+
+        // Firebase Authentication and Initialization
+        function initializeAuth() {
+            return new Promise((resolve, reject) => {
+                const unsubscribe = auth.onAuthStateChanged(async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        if (user.isAnonymous) {
+                            userRole = 'visitor';
+                            console.log("Signed in anonymously. userId:", userId);
+                        } else {
+                            userRole = 'admin';
+                            console.log("Signed in with custom token. userId:", userId);
+                        }
+                        authReady = true;
+                        unsubscribe();
+                        resolve();
+                    }
+                });
+
+                if (initialAuthToken) {
+                    signInWithCustomToken(auth, initialAuthToken)
+                        .then(() => {})
+                        .catch((error) => {
+                            console.error("Custom token sign-in failed. Falling back to anonymous.", error);
+                            signInAnonymously(auth);
+                        });
+                } else {
+                    signInAnonymously(auth);
+                }
+            });
+        }
+
+        // Firestore CRUD functions for Videos
+        async function addVideo(title, videoId, type) {
+            if (userRole !== 'admin') {
+                console.error("Permission denied. Not an admin.");
+                return;
+            }
+            try {
+                await addDoc(collection(db, `/artifacts/${appId}/users/${userId}/videos`), {
+                    title,
+                    videoId,
+                    type, // 'praise' or 'sermon'
+                    createdAt: Date.now()
+                });
+                console.log("Video added successfully.");
+            } catch (e) {
+                console.error("Error adding document: ", e);
+            }
+        }
+
+        async function deleteVideo(id) {
+            if (userRole !== 'admin') {
+                console.error("Permission denied. Not an admin.");
+                return;
+            }
+            try {
+                await deleteDoc(doc(db, `/artifacts/${appId}/users/${userId}/videos`, id));
+                console.log("Video deleted successfully.");
+            } catch (e) {
+                console.error("Error deleting document: ", e);
+            }
+        }
+
+        // Firestore CRUD functions for Gallery Images
+        async function addImage(title, imageUrl) {
+            if (userRole !== 'admin') {
+                console.error("Permission denied. Not an admin.");
+                return;
+            }
+            try {
+                await addDoc(collection(db, `/artifacts/${appId}/users/${userId}/gallery`), {
+                    title,
+                    imageUrl,
+                    createdAt: Date.now()
+                });
+                console.log("Image added successfully.");
+            } catch (e) {
+                console.error("Error adding image: ", e);
+            }
+        }
+
+        async function deleteImage(id) {
+            if (userRole !== 'admin') {
+                console.error("Permission denied. Not an admin.");
+                return;
+            }
+            try {
+                await deleteDoc(doc(db, `/artifacts/${appId}/users/${userId}/gallery`, id));
+                console.log("Image deleted successfully.");
+            } catch (e) {
+                console.error("Error deleting image: ", e);
+            }
+        }
+        
+        // Firestore CRUD functions for Community Posts
+        async function addPost(title, content) {
+            if (userRole !== 'admin') {
+                console.error("Permission denied. Not an admin.");
+                return;
+            }
+            try {
+                await addDoc(collection(db, `/artifacts/${appId}/users/${userId}/community`), {
+                    title,
+                    content,
+                    author: '관리자',
+                    createdAt: Date.now(),
+                    comments: []
+                });
+                console.log("Post added successfully.");
+            } catch (e) {
+                console.error("Error adding post: ", e);
+            }
+        }
+        
+        async function deletePost(id) {
+            if (userRole !== 'admin') {
+                console.error("Permission denied. Not an admin.");
+                return;
+            }
+            try {
+                await deleteDoc(doc(db, `/artifacts/${appId}/users/${userId}/community`, id));
+                console.log("Post deleted successfully.");
+            } catch (e) {
+                console.error("Error deleting post: ", e);
+            }
+        }
+        
+        async function addComment(postId, commentText) {
+            const post = posts.find(p => p.id === postId);
+            if (!post) {
+                console.error("Post not found.");
+                return;
+            }
+            
+            const postRef = doc(db, `/artifacts/${appId}/users/${userId}/community`, postId);
+            
+            const newComment = {
+                text: commentText,
+                author: userRole === 'admin' ? '관리자' : `익명 (${userId.substring(0, 4)})`,
+                createdAt: Date.now()
+            };
+            
+            try {
+                await updateDoc(postRef, {
+                    comments: [...post.comments, newComment]
+                });
+                console.log("Comment added successfully.");
+            } catch (e) {
+                console.error("Error adding comment: ", e);
+            }
+        }
+
+        async function deleteComment(postId, createdAt) {
+            if (userRole !== 'admin') {
+                console.error("Permission denied. Not an admin.");
+                return;
+            }
+
+            const post = posts.find(p => p.id === postId);
+            if (!post) {
+                console.error("Post not found.");
+                return;
+            }
+
+            const postRef = doc(db, `/artifacts/${appId}/users/${userId}/community`, postId);
+            
+            // Filter out the comment based on its creation time
+            const updatedComments = post.comments.filter(comment => comment.createdAt !== createdAt);
+            
+            try {
+                await updateDoc(postRef, {
+                    comments: updatedComments
+                });
+                console.log("Comment deleted successfully.");
+            } catch (e) {
+                console.error("Error deleting comment: ", e);
+            }
+        }
+
+        // Page rendering logic
+        function showStatusMessage(message, type, targetElement) {
+            if (!targetElement) return;
+            targetElement.textContent = message;
+            targetElement.classList.remove('hidden', 'bg-green-100', 'text-green-700', 'bg-red-100', 'text-red-700');
+            if (type === 'green') {
+                targetElement.classList.add('bg-green-100', 'text-green-700');
+            } else {
+                targetElement.classList.add('bg-red-100', 'text-red-700');
+            }
+            targetElement.classList.remove('hidden');
+            setTimeout(() => {
+                targetElement.classList.add('hidden');
+            }, 3000);
+        }
+
+        // Page templates
+        const pageTemplates = {
+            main: (videos) => `
+                <!-- 헤더 섹션 시작 -->
+                ${header()}
+                <!-- 메인 배너 섹션 시작 -->
+                <div class="relative w-full h-[60vh] bg-primary flex items-center justify-center text-white text-center shadow-inner overflow-hidden">
+                    <div class="relative z-10 p-4">
+                        <h1 class="text-4xl md:text-6xl font-extrabold mb-4 drop-shadow-lg fade-in-slide-up" style="animation-delay: 0.2s;">주님의 사랑이 가득한 이곳에 오신 것을 환영합니다.</h1>
+                        <p class="text-lg md:text-2xl font-light italic drop-shadow-md fade-in-slide-up" style="animation-delay: 0.5s;">"나는 길이요 진리요 생명이다." (요한 14,6)</p>
+                    </div>
+                </div>
+                <!-- 메인 배너 섹션 끝 -->
+            
+                <!-- YouTube 비디오 섹션 시작 -->
+                <section class="container mx-auto px-4 py-12">
+                    <h2 class="text-3xl md:text-4xl font-bold text-gray-800 text-center mb-10">찬양 및 강론 영상</h2>
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                        ${videos.length > 0 ? videos.map(video => `
+                            <div class="bg-white rounded-lg shadow-xl overflow-hidden transform transition-all duration-300 hover:scale-105 hover:shadow-2xl">
+                                <div class="relative w-full" style="padding-top: 56.25%;">
+                                    <iframe class="absolute top-0 left-0 w-full h-full" src="https://www.youtube.com/embed/${video.videoId}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                                </div>
+                                <div class="p-4 bg-secondary">
+                                    <h3 class="text-lg font-semibold text-gray-800">${video.title}</h3>
+                                </div>
+                            </div>
+                        `).join('') : '<p class="text-center text-gray-500">현재 등록된 영상이 없습니다.</p>'}
+                    </div>
+                </section>
+                <!-- YouTube 비디오 섹션 끝 -->
+                ${footer()}
+            `,
+            praiseSermon: (videos) => `
+                ${header()}
+                <main class="container mx-auto px-4 py-12">
+                    <h1 class="text-3xl md:text-4xl font-bold text-gray-800 text-center mb-10">찬양 및 강론/강의</h1>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                        ${videos.length > 0 ? videos.map(video => `
+                            <div class="bg-white rounded-lg shadow-xl overflow-hidden transform transition-all duration-300 hover:scale-105 hover:shadow-2xl">
+                                <div class="relative w-full" style="padding-top: 56.25%;">
+                                    <iframe class="absolute top-0 left-0 w-full h-full" src="https://www.youtube.com/embed/${video.videoId}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                                </div>
+                                <div class="p-4 bg-secondary">
+                                    <h3 class="text-lg font-semibold text-gray-800">${video.title}</h3>
+                                    <p class="text-sm text-gray-600 mt-1">${video.type === 'praise' ? '찬양' : '강론'}</p>
+                                </div>
+                            </div>
+                        `).join('') : '<p class="text-center text-gray-500">현재 등록된 영상이 없습니다.</p>'}
+                    </div>
+                </main>
+                ${footer()}
+            `,
+            gallery: (images) => `
+                ${header()}
+                <main class="container mx-auto px-4 py-12">
+                    <h1 class="text-3xl md:text-4xl font-bold text-gray-800 text-center mb-10">갤러리</h1>
+                    ${userRole === 'admin' ? `
+                    <div class="bg-white p-6 rounded-xl shadow-lg w-full max-w-2xl mx-auto mb-8">
+                        <h2 class="text-2xl font-bold text-center text-gray-800 mb-4">사진 업로드 (관리자 전용)</h2>
+                        <form id="add-image-form" class="space-y-4">
+                            <div>
+                                <label for="image-title" class="block text-sm font-medium text-gray-700">제목</label>
+                                <input type="text" id="image-title" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" placeholder="사진 제목을 입력하세요" required>
+                            </div>
+                            <div>
+                                <label for="image-url" class="block text-sm font-medium text-gray-700">이미지 URL</label>
+                                <input type="text" id="image-url" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" placeholder="예: https://placehold.co/400x400" required>
+                            </div>
+                            <button type="submit" class="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">사진 추가</button>
+                            <div id="add-image-status" class="hidden text-center text-sm p-2 rounded-md mt-2"></div>
+                        </form>
+                    </div>` : ''}
+
+                    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                        ${images.length > 0 ? images.map(image => `
+                            <div class="relative group cursor-pointer" onclick="openImageModal('${image.imageUrl}')">
+                                <img src="${image.imageUrl}" onerror="this.onerror=null;this.src='https://placehold.co/400x400';" class="w-full h-48 object-cover rounded-xl shadow-md transition-all duration-300 group-hover:scale-105" alt="${image.title}">
+                                ${userRole === 'admin' ? `
+                                <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl">
+                                    <button onclick="event.stopPropagation(); deleteImage('${image.id}');" class="px-3 py-1 bg-red-500 text-white text-sm rounded-md hover:bg-red-600 transition-colors duration-200">삭제</button>
+                                </div>` : ''}
+                            </div>
+                        `).join('') : '<p class="text-center text-gray-500 col-span-full">현재 등록된 사진이 없습니다.</p>'}
+                    </div>
+                </main>
+                ${footer()}
+            `,
+            community: (posts) => `
+                ${header()}
+                <main class="container mx-auto px-4 py-12">
+                    <h1 class="text-3xl md:text-4xl font-bold text-gray-800 text-center mb-10">커뮤니티</h1>
+                    ${userRole === 'admin' ? `
+                    <div class="bg-white p-6 rounded-xl shadow-lg w-full max-w-2xl mx-auto mb-8">
+                        <h2 class="text-2xl font-bold text-center text-gray-800 mb-4">새 글 작성 (관리자 전용)</h2>
+                        <form id="add-post-form" class="space-y-4">
+                            <div>
+                                <label for="post-title" class="block text-sm font-medium text-gray-700">제목</label>
+                                <input type="text" id="post-title" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" placeholder="글 제목을 입력하세요" required>
+                            </div>
+                            <div>
+                                <label for="post-content" class="block text-sm font-medium text-gray-700">내용</label>
+                                <textarea id="post-content" rows="4" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" placeholder="내용을 입력하세요" required></textarea>
+                            </div>
+                            <button type="submit" class="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">글쓰기</button>
+                            <div id="add-post-status" class="hidden text-center text-sm p-2 rounded-md mt-2"></div>
+                        </form>
+                    </div>` : ''}
+
+                    <div class="bg-white p-6 rounded-xl shadow-lg w-full max-w-2xl mx-auto">
+                        <ul id="post-list" class="space-y-6">
+                            ${posts.length > 0 ? posts.map(post => `
+                                <li class="p-4 border-b last:border-b-0 border-gray-200">
+                                    <div class="flex justify-between items-center mb-2">
+                                        <h3 class="text-xl font-semibold text-gray-800">${post.title}</h3>
+                                        ${userRole === 'admin' ? `
+                                        <button onclick="deletePost('${post.id}')" class="px-3 py-1 bg-red-500 text-white text-xs rounded-md hover:bg-red-600 transition-colors duration-200">삭제</button>
+                                        ` : ''}
+                                    </div>
+                                    <div class="text-sm text-gray-500 mb-4">작성자: ${post.author} | 작성일: ${new Date(post.createdAt).toLocaleDateString()}</div>
+                                    <p class="text-gray-700 mb-4">${post.content}</p>
+
+                                    <!-- 댓글 섹션 -->
+                                    <div class="bg-gray-50 p-4 rounded-lg">
+                                        <h4 class="font-bold text-gray-700 mb-2">댓글 (${post.comments.length})</h4>
+                                        <ul class="space-y-2 mb-4 text-sm">
+                                            ${post.comments.map(comment => `
+                                                <li class="flex justify-between items-start p-2 bg-gray-100 rounded">
+                                                    <div>
+                                                        <span class="font-semibold text-gray-600">${comment.author}:</span>
+                                                        <span>${comment.text}</span>
+                                                    </div>
+                                                    ${userRole === 'admin' ? `
+                                                    <button onclick="deleteComment('${post.id}', ${comment.createdAt})" class="text-red-500 hover:text-red-700 transition-colors duration-200">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                                            <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm6 0a1 1 0 11-2 0v6a1 1 0 112 0V8z" clip-rule="evenodd" />
+                                                        </svg>
+                                                    </button>
+                                                    ` : ''}
+                                                </li>
+                                            `).join('')}
+                                        </ul>
+                                        <form onsubmit="event.preventDefault(); addComment('${post.id}', this.querySelector('input').value); this.reset();" class="flex gap-2">
+                                            <input type="text" placeholder="댓글을 입력하세요..." class="flex-grow p-2 border rounded-md" required>
+                                            <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">등록</button>
+                                        </form>
+                                    </div>
+                                </li>
+                            `).join('') : '<li class="text-center text-gray-500">아직 작성된 글이 없습니다.</li>'}
+                        </ul>
+                    </div>
+                </main>
+                ${footer()}
+            `,
+            admin: (videos, images, posts) => `
+                ${header()}
+                <main class="container mx-auto px-4 py-12">
+                    <h1 class="text-3xl md:text-4xl font-bold text-gray-800 text-center mb-10">관리자 페이지</h1>
+                    <p class="text-center text-gray-600 mb-8">환영합니다, 관리자님! 이곳에서 모든 콘텐츠를 관리할 수 있습니다.</p>
+            
+                    <!-- 비디오 관리 섹션 -->
+                    <section class="bg-white p-6 rounded-xl shadow-lg mb-8">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-4">영상 관리 (찬양/강론)</h2>
+                        <form id="add-video-form" class="space-y-4 mb-6">
+                            <div>
+                                <label for="video-title" class="block text-sm font-medium text-gray-700">제목</label>
+                                <input type="text" id="video-title" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" placeholder="영상 제목을 입력하세요" required>
+                            </div>
+                            <div>
+                                <label for="video-id" class="block text-sm font-medium text-gray-700">YouTube 영상 ID</label>
+                                <input type="text" id="video-id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" placeholder="예: aBcDeFgHiJk" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">영상 종류</label>
+                                <div class="mt-1 flex space-x-4">
+                                    <label class="inline-flex items-center">
+                                        <input type="radio" name="video-type" value="praise" class="form-radio text-blue-600" checked>
+                                        <span class="ml-2">찬양</span>
+                                    </label>
+                                    <label class="inline-flex items-center">
+                                        <input type="radio" name="video-type" value="sermon" class="form-radio text-blue-600">
+                                        <span class="ml-2">강론/강의</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <button type="submit" class="w-full py-2 px-4 rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors duration-200">영상 추가</button>
+                            <div id="add-video-status" class="hidden text-center text-sm p-2 rounded-md mt-2"></div>
+                        </form>
+            
+                        <h3 class="text-xl font-bold text-gray-700 mb-4">현재 영상 목록</h3>
+                        <ul class="space-y-4">
+                            ${videos.length > 0 ? videos.map(video => `
+                                <li class="flex justify-between items-center bg-gray-50 p-3 rounded-lg">
+                                    <span class="text-gray-800 font-medium">${video.title} (${video.type === 'praise' ? '찬양' : '강론'})</span>
+                                    <button onclick="deleteVideo('${video.id}')" class="px-3 py-1 bg-red-500 text-white text-xs rounded-md hover:bg-red-600 transition-colors duration-200">삭제</button>
+                                </li>
+                            `).join('') : '<li class="text-center text-gray-500">등록된 영상이 없습니다.</li>'}
+                        </ul>
+                    </section>
+            
+                    <!-- 갤러리 관리 섹션 -->
+                    <section class="bg-white p-6 rounded-xl shadow-lg mb-8">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-4">갤러리 관리</h2>
+                        <form id="add-image-form" class="space-y-4 mb-6">
+                            <div>
+                                <label for="image-title" class="block text-sm font-medium text-gray-700">제목</label>
+                                <input type="text" id="image-title" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" placeholder="사진 제목을 입력하세요" required>
+                            </div>
+                            <div>
+                                <label for="image-url" class="block text-sm font-medium text-gray-700">이미지 URL</label>
+                                <input type="text" id="image-url" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" placeholder="예: https://placehold.co/400x400" required>
+                            </div>
+                            <button type="submit" class="w-full py-2 px-4 rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors duration-200">사진 추가</button>
+                            <div id="add-image-status" class="hidden text-center text-sm p-2 rounded-md mt-2"></div>
+                        </form>
+            
+                        <h3 class="text-xl font-bold text-gray-700 mb-4">현재 사진 목록</h3>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                            ${images.length > 0 ? images.map(image => `
+                                <div class="relative group">
+                                    <img src="${image.imageUrl}" onerror="this.onerror=null;this.src='https://placehold.co/400x400';" class="w-full h-32 object-cover rounded-xl shadow-md" alt="${image.title}">
+                                    <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl">
+                                        <button onclick="deleteImage('${image.id}')" class="px-3 py-1 bg-red-500 text-white text-sm rounded-md hover:bg-red-600 transition-colors duration-200">삭제</button>
+                                    </div>
+                                </div>
+                            `).join('') : '<p class="text-center text-gray-500 col-span-full">등록된 사진이 없습니다.</p>'}
+                        </div>
+                    </section>
+            
+                    <!-- 커뮤니티 관리 섹션 -->
+                    <section class="bg-white p-6 rounded-xl shadow-lg">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-4">커뮤니티 관리</h2>
+                        <form id="add-post-form" class="space-y-4 mb-6">
+                            <div>
+                                <label for="post-title" class="block text-sm font-medium text-gray-700">제목</label>
+                                <input type="text" id="post-title" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" placeholder="글 제목을 입력하세요" required>
+                            </div>
+                            <div>
+                                <label for="post-content" class="block text-sm font-medium text-gray-700">내용</label>
+                                <textarea id="post-content" rows="4" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" placeholder="내용을 입력하세요" required></textarea>
+                            </div>
+                            <button type="submit" class="w-full py-2 px-4 rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors duration-200">새 글 작성</button>
+                            <div id="add-post-status" class="hidden text-center text-sm p-2 rounded-md mt-2"></div>
+                        </form>
+            
+                        <h3 class="text-xl font-bold text-gray-700 mb-4">현재 게시글 목록</h3>
+                        <ul class="space-y-6">
+                            ${posts.length > 0 ? posts.map(post => `
+                                <li class="p-4 border-b last:border-b-0 border-gray-200">
+                                    <div class="flex justify-between items-center mb-2">
+                                        <h3 class="text-xl font-semibold text-gray-800">${post.title}</h3>
+                                        <button onclick="deletePost('${post.id}')" class="px-3 py-1 bg-red-500 text-white text-xs rounded-md hover:bg-red-600 transition-colors duration-200">삭제</button>
+                                    </div>
+                                    <div class="text-sm text-gray-500 mb-4">작성자: ${post.author} | 작성일: ${new Date(post.createdAt).toLocaleDateString()}</div>
+                                    <p class="text-gray-700 mb-4">${post.content}</p>
+            
+                                    <!-- 댓글 관리 -->
+                                    <div class="bg-gray-50 p-4 rounded-lg">
+                                        <h4 class="font-bold text-gray-700 mb-2">댓글 (${post.comments.length})</h4>
+                                        <ul class="space-y-2 mb-4 text-sm">
+                                            ${post.comments.map(comment => `
+                                                <li class="flex justify-between items-start p-2 bg-gray-100 rounded">
+                                                    <div>
+                                                        <span class="font-semibold text-gray-600">${comment.author}:</span>
+                                                        <span>${comment.text}</span>
+                                                    </div>
+                                                    ${userRole === 'admin' ? `
+                                                    <button onclick="deleteComment('${post.id}', ${comment.createdAt})" class="text-red-500 hover:text-red-700 transition-colors duration-200">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                                            <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm6 0a1 1 0 11-2 0v6a1 1 0 112 0V8z" clip-rule="evenodd" />
+                                                        </svg>
+                                                    </button>
+                                                    ` : ''}
+                                                </li>
+                                            `).join('')}
+                                        </ul>
+                                        <form onsubmit="event.preventDefault(); addComment('${post.id}', this.querySelector('input').value); this.reset();" class="flex gap-2">
+                                            <input type="text" placeholder="댓글을 입력하세요..." class="flex-grow p-2 border rounded-md" required>
+                                            <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">등록</button>
+                                        </form>
+                                    </div>
+                                </li>
+                            `).join('') : '<li class="text-center text-gray-500">아직 작성된 글이 없습니다.</li>'}
+                        </ul>
+                    </section>
+                </main>
+                ${footer()}
+            `,
+        };
+        
+        // 공통 헤더와 푸터 템플릿
+        function header() {
+            return `
+                <header class="bg-gray-800 text-white p-4 shadow-lg sticky top-0 z-50">
+                    <div class="container mx-auto flex justify-between items-center">
+                        <div class="flex items-center space-x-2">
+                            <a href="#" onclick="renderPage('main')" class="flex items-center space-x-2 text-xl font-bold hover:text-gray-300 transition-colors duration-300">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-church"><path d="m20.5 12-8.31-8.31a2.83 2.83 0 0 0-4.01 0L3.5 12"/><path d="m6 16.5 6 5.5 6-5.5"/><path d="M12 22v-8.5"/><path d="M5 13H2c-.55 0-1 .45-1 1v7c0 .55.45 1 1 1h4V13Z"/><path d="M19 13h3c.55 0 1 .45 1 1v7c0 .55-.45 1-1 1h-4V13Z"/><path d="M12 13a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/></svg>
+                                <span>padre Sony</span>
+                            </a>
+                        </div>
+            
+                        <!-- 모바일 햄버거 메뉴 버튼 -->
+                        <div class="md:hidden">
+                            <div id="hamburger" class="hamburger-menu">
+                                <div class="bar"></div>
+                                <div class="bar"></div>
+                                <div class="bar"></div>
+                            </div>
+                        </div>
+            
+                        <!-- 네비게이션 메뉴 -->
+                        <nav id="main-nav" class="main-nav md:flex md:space-x-4 items-center">
+                            <a href="#" onclick="renderPage('praiseSermon')" class="text-gray-300 hover:text-white font-medium p-2 rounded-lg transition-colors duration-300">찬양/강론</a>
+                            <a href="#" onclick="renderPage('gallery')" class="text-gray-300 hover:text-white font-medium p-2 rounded-lg transition-colors duration-300">갤러리</a>
+                            <a href="#" onclick="renderPage('community')" class="text-gray-300 hover:text-white font-medium p-2 rounded-lg transition-colors duration-300">커뮤니티</a>
+                            ${userRole === 'admin' ? `<button onclick="renderPage('admin')" class="text-gray-300 hover:text-white font-medium p-2 rounded-lg transition-colors duration-300">관리자</button>` : ''}
+                        </nav>
+                    </div>
+                </header>
+            `;
+        }
+
+        function footer() {
+            return `
+                <footer class="footer">
+                    <div class="max-w-6xl mx-auto">
+                        <p class="mb-2">&copy; 2025 Padre Sony. All rights reserved.</p>
+                        <p class="text-sm">문의: info@padresony.org | Tel: 02-123-4567</p>
+                        <p class="text-xs mt-2">Current User ID: ${userId}</p>
+                    </div>
+                </footer>
+            `;
+        }
+
+
+        function renderPage(page) {
+            currentPage = page;
+            const container = document.getElementById('app-container');
+            if (container) {
+                switch(page) {
+                    case 'main':
+                        container.innerHTML = pageTemplates.main(videos);
+                        break;
+                    case 'praiseSermon':
+                        container.innerHTML = pageTemplates.praiseSermon(videos);
+                        break;
+                    case 'gallery':
+                        container.innerHTML = pageTemplates.gallery(images);
+                        break;
+                    case 'community':
+                        container.innerHTML = pageTemplates.community(posts);
+                        break;
+                    case 'admin':
+                        container.innerHTML = pageTemplates.admin(videos, images, posts);
+                        break;
+                }
+                attachEventListeners();
+            }
+        }
+        
+        function attachEventListeners() {
+            // Hamburger menu functionality
+            const hamburger = document.getElementById('hamburger');
+            const nav = document.getElementById('main-nav');
+            if (hamburger && nav) {
+                hamburger.onclick = () => {
+                    nav.classList.toggle('active');
+                };
+            }
+            
+            // Gallery Page Event Listeners
+            const addImageForm = document.getElementById('add-image-form');
+            if (addImageForm) {
+                addImageForm.onsubmit = async (event) => {
+                    event.preventDefault();
+                    const titleInput = document.getElementById('image-title');
+                    const urlInput = document.getElementById('image-url');
+                    const statusMessage = document.getElementById('add-image-status');
+                    
+                    const title = titleInput.value;
+                    const imageUrl = urlInput.value;
+                    
+                    if (title && imageUrl) {
+                        showStatusMessage('사진 추가 중...', 'green', statusMessage);
+                        await addImage(title, imageUrl);
+                        titleInput.value = '';
+                        urlInput.value = '';
+                        showStatusMessage('사진 추가 완료!', 'green', statusMessage);
+                    } else {
+                        showStatusMessage('제목과 이미지 URL을 모두 입력해주세요.', 'red', statusMessage);
+                    }
+                };
+            }
+            
+            // Video Admin Page Event Listeners
+            const addVideoForm = document.getElementById('add-video-form');
+            if(addVideoForm) {
+                addVideoForm.onsubmit = async (event) => {
+                    event.preventDefault();
+                    const titleInput = document.getElementById('video-title');
+                    const videoIdInput = document.getElementById('video-id');
+                    const videoTypeInput = document.querySelector('input[name="video-type"]:checked');
+                    const statusMessage = document.getElementById('add-video-status');
+                    
+                    const title = titleInput.value;
+                    const videoId = videoIdInput.value;
+                    const type = videoTypeInput ? videoTypeInput.value : 'praise';
+
+                    if (title && videoId) {
+                        showStatusMessage('영상 추가 중...', 'green', statusMessage);
+                        await addVideo(title, videoId, type);
+                        titleInput.value = '';
+                        videoIdInput.value = '';
+                        showStatusMessage('영상 추가 완료!', 'green', statusMessage);
+                    } else {
+                        showStatusMessage('제목과 영상 ID를 모두 입력해주세요.', 'red', statusMessage);
+                    }
+                };
+            }
+
+            // Image modal functionality
+            const modal = document.getElementById('image-modal');
+            const modalImg = document.getElementById('modal-image');
+            const closeBtn = document.getElementsByClassName('close')[0];
+            if (modal && closeBtn) {
+                closeBtn.onclick = () => {
+                    modal.style.display = 'none';
+                };
+            }
+            window.onclick = (event) => {
+                if (event.target === modal) {
+                    modal.style.display = 'none';
+                }
+            };
+            window.openImageModal = (imageUrl) => {
+                modal.style.display = 'flex';
+                modalImg.src = imageUrl;
+            };
+
+            // Community Page Event Listeners
+            const addPostForm = document.getElementById('add-post-form');
+            if (addPostForm) {
+                addPostForm.onsubmit = async (event) => {
+                    event.preventDefault();
+                    const titleInput = document.getElementById('post-title');
+                    const contentInput = document.getElementById('post-content');
+                    const statusMessage = document.getElementById('add-post-status');
+                    
+                    const title = titleInput.value;
+                    const content = contentInput.value;
+                    
+                    if (title && content) {
+                        showStatusMessage('글 작성 중...', 'green', statusMessage);
+                        await addPost(title, content);
+                        titleInput.value = '';
+                        contentInput.value = '';
+                        showStatusMessage('글 작성 완료!', 'green', statusMessage);
+                    } else {
+                        showStatusMessage('제목과 내용을 모두 입력해주세요.', 'red', statusMessage);
+                    }
+                };
+            }
+        }
+
+        // Expose functions to the global scope so they can be called from onclick attributes
+        window.renderPage = renderPage;
+        window.addVideo = addVideo;
+        window.deleteVideo = deleteVideo;
+        window.addImage = addImage;
+        window.deleteImage = deleteImage;
+        window.addPost = addPost;
+        window.deletePost = deletePost;
+        window.addComment = addComment;
+        window.deleteComment = deleteComment;
+
+        // Initialize the app after authentication is ready
+        initializeAuth().then(() => {
+            // Setup Firestore listeners for all collections
+            const videosRef = collection(db, `/artifacts/${appId}/users/${userId}/videos`);
+            onSnapshot(videosRef, (snapshot) => {
+                videos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                videos.sort((a, b) => b.createdAt - a.createdAt);
+                console.log("Videos updated:", videos);
+                if (currentPage === 'main' || currentPage === 'praiseSermon' || currentPage === 'admin') {
+                    renderPage(currentPage);
+                }
+            }, (error) => {
+                console.error("Error fetching videos: ", error);
+            });
+            
+            const galleryRef = collection(db, `/artifacts/${appId}/users/${userId}/gallery`);
+            onSnapshot(galleryRef, (snapshot) => {
+                images = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                images.sort((a, b) => b.createdAt - a.createdAt);
+                console.log("Images updated:", images);
+                if (currentPage === 'gallery' || currentPage === 'admin') {
+                    renderPage(currentPage);
+                }
+            }, (error) => {
+                console.error("Error fetching images: ", error);
+            });
+            
+            const communityRef = collection(db, `/artifacts/${appId}/users/${userId}/community`);
+            onSnapshot(communityRef, (snapshot) => {
+                posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                posts.sort((a, b) => b.createdAt - a.createdAt);
+                console.log("Posts updated:", posts);
+                if (currentPage === 'community' || currentPage === 'admin') {
+                    renderPage(currentPage);
+                }
+            }, (error) => {
+                console.error("Error fetching posts: ", error);
+            });
+            
+            renderPage('main');
+        });
+    </script>
 </body>
 </html>
